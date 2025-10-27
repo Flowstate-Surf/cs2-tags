@@ -83,7 +83,17 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         
         // Initialize database
         Database = new DatabaseService(config.Database);
-        Task.Run(async () => await Database.InitializeAsync());
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Database.InitializeAsync();
+            }
+            catch (Exception ex)
+            {
+                Server.PrintToConsole($"[cs2-tags] Database initialization failed: {ex.Message}");
+            }
+        });
     }
 
     public static HookResult Command_Admins_Reloads(CCSPlayerController? player, CommandInfo info)
@@ -202,22 +212,29 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         PlayerTagsList[player.SteamID] = player.GetTag();
         
         // Load colors from database
-        Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
-            if (Database == null)
-                return;
-                
-            var (chatColor, nameColor) = await Database.LoadPlayerColorsAsync(player.SteamID);
-            
-            if (chatColor != null || nameColor != null)
+            try
             {
-                Server.NextFrame(() =>
+                if (Database == null)
+                    return;
+                    
+                var (chatColor, nameColor) = await Database.LoadPlayerColorsAsync(player.SteamID);
+                
+                if (chatColor != null || nameColor != null)
                 {
-                    if (chatColor != null)
-                        player.SetAttribute(TagType.ChatColor, chatColor);
-                    if (nameColor != null)
-                        player.SetAttribute(TagType.NameColor, nameColor);
-                });
+                    Server.NextFrame(() =>
+                    {
+                        if (chatColor != null)
+                            player.SetAttribute(TagType.ChatColor, chatColor);
+                        if (nameColor != null)
+                            player.SetAttribute(TagType.NameColor, nameColor);
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Server.PrintToConsole($"[cs2-tags] Error loading player colors: {ex.Message}");
             }
         });
         
