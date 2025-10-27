@@ -6,9 +6,20 @@ SpecName = "{Purple}(SPEC)"
 TName = "{Yellow}(T)"
 CTName = "{Blue}(CT)"
 
+[Database]
+Enabled = false
+Host = "localhost"
+Port = 3306
+User = "root"
+Password = ""
+DatabaseName = "cs2_tags"
+TableName = "player_colors"
+
 [Commands]
 TagsReload = [ "css_tags_reload" ]
 Visibility = [ "css_toggletags", "css_visibility" ]
+NameColor = [ "css_namecolor" ]
+ChatColor = [ "css_chatcolor" ]
 
 [Default]
 ScoreTag = ""
