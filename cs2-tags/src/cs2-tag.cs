@@ -25,6 +25,19 @@ public class Tags : BasePlugin, IPluginConfig<Config>
     public Config Config { get; set; } = new();
     public static DatabaseService? Database { get; private set; }
 
+    private static readonly HashSet<string> ValidColors = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "White", "TeamColor", "DarkRed", "Green", "LightYellow", "LightBlue",
+        "Olive", "Lime", "Red", "LightPurple", "Purple", "Grey", "Yellow",
+        "Gold", "Silver", "Blue", "DarkBlue", "BlueGrey", "Magenta",
+        "LightRed", "Orange"
+    };
+
+    private static bool IsValidColor(string color)
+    {
+        return ValidColors.Contains(color);
+    }
+
     public override void Load(bool hotReload)
     {
         Instance = this;
@@ -110,10 +123,21 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         }
 
         string color = info.GetArg(1);
+        
+        if (!IsValidColor(color))
+        {
+            info.ReplyToCommand(Config.Settings.Tag + $"Invalid color: {color}. Please use a valid color name.");
+            return;
+        }
+        
         player.SetAttribute(TagType.NameColor, $"{{{color}}}");
         
         Tag tag = GetOrCreatePlayerTag(player, false);
-        Task.Run(async () => await Database?.SavePlayerColorsAsync(player.SteamID, player.PlayerName, tag.ChatColor, tag.NameColor)!);
+        Task.Run(async () =>
+        {
+            if (Database != null)
+                await Database.SavePlayerColorsAsync(player.SteamID, player.PlayerName, tag.ChatColor, tag.NameColor);
+        });
         
         info.ReplyToCommand(Config.Settings.Tag + $"Name color changed to {color}");
     }
@@ -128,10 +152,21 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         }
 
         string color = info.GetArg(1);
+        
+        if (!IsValidColor(color))
+        {
+            info.ReplyToCommand(Config.Settings.Tag + $"Invalid color: {color}. Please use a valid color name.");
+            return;
+        }
+        
         player.SetAttribute(TagType.ChatColor, $"{{{color}}}");
         
         Tag tag = GetOrCreatePlayerTag(player, false);
-        Task.Run(async () => await Database?.SavePlayerColorsAsync(player.SteamID, player.PlayerName, tag.ChatColor, tag.NameColor)!);
+        Task.Run(async () =>
+        {
+            if (Database != null)
+                await Database.SavePlayerColorsAsync(player.SteamID, player.PlayerName, tag.ChatColor, tag.NameColor);
+        });
         
         info.ReplyToCommand(Config.Settings.Tag + $"Chat color changed to {color}");
     }
