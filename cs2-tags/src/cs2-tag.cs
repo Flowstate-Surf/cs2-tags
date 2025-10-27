@@ -41,6 +41,11 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         return ValidColors.Contains(color);
     }
 
+    private static string GetValidColorsMessage()
+    {
+        return string.Join(", ", ValidColors.OrderBy(c => c));
+    }
+
     public override void Load(bool hotReload)
     {
         Instance = this;
@@ -129,7 +134,7 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         
         if (!IsValidColor(color))
         {
-            info.ReplyToCommand(Config.Settings.Tag + $"Invalid color: {color}. Valid colors: Red, Blue, Green, Yellow, Purple, Orange, etc.");
+            info.ReplyToCommand(Config.Settings.Tag + $"Invalid color: {color}. Valid colors: {GetValidColorsMessage()}");
             return;
         }
         
@@ -165,7 +170,7 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         
         if (!IsValidColor(color))
         {
-            info.ReplyToCommand(Config.Settings.Tag + $"Invalid color: {color}. Valid colors: Red, Blue, Green, Yellow, Purple, Orange, etc.");
+            info.ReplyToCommand(Config.Settings.Tag + $"Invalid color: {color}. Valid colors: {GetValidColorsMessage()}");
             return;
         }
         
