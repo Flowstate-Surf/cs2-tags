@@ -23,6 +23,7 @@ public class Tags : BasePlugin, IPluginConfig<Config>
     public static readonly TagsAPI Api = new();
     public static Tags Instance { get; set; } = new();
     public Config Config { get; set; } = new();
+    public static DatabaseService? Database { get; private set; }
 
     public override void Load(bool hotReload)
     {
@@ -34,6 +35,12 @@ public class Tags : BasePlugin, IPluginConfig<Config>
 
         foreach (string command in Config.Commands.Visibility)
             AddCommand(command, "Visibility", Command_Visibility);
+
+        foreach (string command in Config.Commands.NameColor)
+            AddCommand(command, "Change name color", Command_NameColor);
+
+        foreach (string command in Config.Commands.ChatColor)
+            AddCommand(command, "Change chat color", Command_ChatColor);
 
         HookUserMessage(118, OnMessage, HookMode.Pre);
         AddCommandListener("css_admins_reload", Command_Admins_Reloads, HookMode.Pre);
@@ -52,6 +59,10 @@ public class Tags : BasePlugin, IPluginConfig<Config>
     {
         config.Settings.Init();
         Config = config;
+        
+        // Initialize database
+        Database = new DatabaseService(config.Database);
+        Task.Run(async () => await Database.InitializeAsync());
     }
 
     public static HookResult Command_Admins_Reloads(CCSPlayerController? player, CommandInfo info)
@@ -89,6 +100,42 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         }
     }
 
+    [RequiresPermissions("@css/vip")]
+    [CommandHelper(minArgs: 1, usage: "<color>", whoCanExecute: CommandUsage.CLIENT_ONLY)]
+    public void Command_NameColor(CCSPlayerController? player, CommandInfo info)
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        string color = info.GetArg(1);
+        player.SetAttribute(TagType.NameColor, $"{{{color}}}");
+        
+        Tag tag = GetOrCreatePlayerTag(player, false);
+        Task.Run(async () => await Database?.SavePlayerColorsAsync(player.SteamID, player.PlayerName, tag.ChatColor, tag.NameColor)!);
+        
+        info.ReplyToCommand(Config.Settings.Tag + $"Name color changed to {color}");
+    }
+
+    [RequiresPermissions("@css/vip")]
+    [CommandHelper(minArgs: 1, usage: "<color>", whoCanExecute: CommandUsage.CLIENT_ONLY)]
+    public void Command_ChatColor(CCSPlayerController? player, CommandInfo info)
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        string color = info.GetArg(1);
+        player.SetAttribute(TagType.ChatColor, $"{{{color}}}");
+        
+        Tag tag = GetOrCreatePlayerTag(player, false);
+        Task.Run(async () => await Database?.SavePlayerColorsAsync(player.SteamID, player.PlayerName, tag.ChatColor, tag.NameColor)!);
+        
+        info.ReplyToCommand(Config.Settings.Tag + $"Chat color changed to {color}");
+    }
+
     [GameEventHandler]
     public HookResult OnPlayerConnect(EventPlayerConnectFull @event, GameEventInfo info)
     {
@@ -96,6 +143,27 @@ public class Tags : BasePlugin, IPluginConfig<Config>
             return HookResult.Continue;
 
         PlayerTagsList[player.SteamID] = player.GetTag();
+        
+        // Load colors from database
+        Task.Run(async () =>
+        {
+            if (Database == null)
+                return;
+                
+            var (chatColor, nameColor) = await Database.LoadPlayerColorsAsync(player.SteamID);
+            
+            if (chatColor != null || nameColor != null)
+            {
+                Server.NextFrame(() =>
+                {
+                    if (chatColor != null)
+                        player.SetAttribute(TagType.ChatColor, chatColor);
+                    if (nameColor != null)
+                        player.SetAttribute(TagType.NameColor, nameColor);
+                });
+            }
+        });
+        
         return HookResult.Continue;
     }
 
