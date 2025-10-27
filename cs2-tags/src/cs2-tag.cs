@@ -25,6 +25,9 @@ public class Tags : BasePlugin, IPluginConfig<Config>
     public Config Config { get; set; } = new();
     public static DatabaseService? Database { get; private set; }
 
+    // Valid CS2 color names that can be used in chat
+    // These colors correspond to the color tags supported by CounterStrikeSharp
+    // Reference: https://github.com/Hexer10/HexTags (original CSGO implementation)
     private static readonly HashSet<string> ValidColors = new(StringComparer.OrdinalIgnoreCase)
     {
         "White", "TeamColor", "DarkRed", "Green", "LightYellow", "LightBlue",
@@ -126,7 +129,7 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         
         if (!IsValidColor(color))
         {
-            info.ReplyToCommand(Config.Settings.Tag + $"Invalid color: {color}. Please use a valid color name.");
+            info.ReplyToCommand(Config.Settings.Tag + $"Invalid color: {color}. Valid colors: Red, Blue, Green, Yellow, Purple, Orange, etc.");
             return;
         }
         
@@ -135,8 +138,15 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         Tag tag = GetOrCreatePlayerTag(player, false);
         Task.Run(async () =>
         {
-            if (Database != null)
-                await Database.SavePlayerColorsAsync(player.SteamID, player.PlayerName, tag.ChatColor, tag.NameColor);
+            try
+            {
+                if (Database != null)
+                    await Database.SavePlayerColorsAsync(player.SteamID, player.PlayerName, tag.ChatColor, tag.NameColor);
+            }
+            catch (Exception ex)
+            {
+                Server.PrintToConsole($"[cs2-tags] Error saving name color: {ex.Message}");
+            }
         });
         
         info.ReplyToCommand(Config.Settings.Tag + $"Name color changed to {color}");
@@ -155,7 +165,7 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         
         if (!IsValidColor(color))
         {
-            info.ReplyToCommand(Config.Settings.Tag + $"Invalid color: {color}. Please use a valid color name.");
+            info.ReplyToCommand(Config.Settings.Tag + $"Invalid color: {color}. Valid colors: Red, Blue, Green, Yellow, Purple, Orange, etc.");
             return;
         }
         
@@ -164,8 +174,15 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         Tag tag = GetOrCreatePlayerTag(player, false);
         Task.Run(async () =>
         {
-            if (Database != null)
-                await Database.SavePlayerColorsAsync(player.SteamID, player.PlayerName, tag.ChatColor, tag.NameColor);
+            try
+            {
+                if (Database != null)
+                    await Database.SavePlayerColorsAsync(player.SteamID, player.PlayerName, tag.ChatColor, tag.NameColor);
+            }
+            catch (Exception ex)
+            {
+                Server.PrintToConsole($"[cs2-tags] Error saving chat color: {ex.Message}");
+            }
         });
         
         info.ReplyToCommand(Config.Settings.Tag + $"Chat color changed to {color}");
