@@ -151,7 +151,7 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         player.SetAttribute(TagType.NameColor, $"{{{color}}}");
         
         Tag tag = GetOrCreatePlayerTag(player, false);
-        Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
             try
             {
@@ -187,7 +187,7 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         player.SetAttribute(TagType.ChatColor, $"{{{color}}}");
         
         Tag tag = GetOrCreatePlayerTag(player, false);
-        Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
             try
             {
