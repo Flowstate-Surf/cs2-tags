@@ -23,6 +23,28 @@ public class Tags : BasePlugin, IPluginConfig<Config>
     public static readonly TagsAPI Api = new();
     public static Tags Instance { get; set; } = new();
     public Config Config { get; set; } = new();
+    public static DatabaseService? Database { get; private set; }
+
+    // Valid CS2 color names that can be used in chat
+    // These colors correspond to the color tags supported by CounterStrikeSharp
+    // Reference: https://github.com/Hexer10/HexTags (original CSGO implementation)
+    private static readonly HashSet<string> ValidColors = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "White", "TeamColor", "DarkRed", "Green", "LightYellow", "LightBlue",
+        "Olive", "Lime", "Red", "LightPurple", "Purple", "Grey", "Yellow",
+        "Gold", "Silver", "Blue", "DarkBlue", "BlueGrey", "Magenta",
+        "LightRed", "Orange"
+    };
+
+    private static bool IsValidColor(string color)
+    {
+        return ValidColors.Contains(color);
+    }
+
+    private static string GetValidColorsMessage()
+    {
+        return string.Join(", ", ValidColors.OrderBy(c => c));
+    }
 
     public override void Load(bool hotReload)
     {
@@ -34,6 +56,12 @@ public class Tags : BasePlugin, IPluginConfig<Config>
 
         foreach (string command in Config.Commands.Visibility)
             AddCommand(command, "Visibility", Command_Visibility);
+
+        foreach (string command in Config.Commands.NameColor)
+            AddCommand(command, "Change name color", Command_NameColor);
+
+        foreach (string command in Config.Commands.ChatColor)
+            AddCommand(command, "Change chat color", Command_ChatColor);
 
         HookUserMessage(118, OnMessage, HookMode.Pre);
         AddCommandListener("css_admins_reload", Command_Admins_Reloads, HookMode.Pre);
@@ -52,6 +80,20 @@ public class Tags : BasePlugin, IPluginConfig<Config>
     {
         config.Settings.Init();
         Config = config;
+        
+        // Initialize database
+        Database = new DatabaseService(config.Database);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Database.InitializeAsync();
+            }
+            catch (Exception ex)
+            {
+                Server.PrintToConsole($"[cs2-tags] Database initialization failed: {ex.Message}");
+            }
+        });
     }
 
     public static HookResult Command_Admins_Reloads(CCSPlayerController? player, CommandInfo info)
@@ -89,6 +131,78 @@ public class Tags : BasePlugin, IPluginConfig<Config>
         }
     }
 
+    [RequiresPermissions("@css/vip")]
+    [CommandHelper(minArgs: 1, usage: "<color>", whoCanExecute: CommandUsage.CLIENT_ONLY)]
+    public void Command_NameColor(CCSPlayerController? player, CommandInfo info)
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        string color = info.GetArg(1);
+        
+        if (!IsValidColor(color))
+        {
+            info.ReplyToCommand(Config.Settings.Tag + $"Invalid color: {color}. Valid colors: {GetValidColorsMessage()}");
+            return;
+        }
+        
+        player.SetAttribute(TagType.NameColor, $"{{{color}}}");
+        
+        Tag tag = GetOrCreatePlayerTag(player, false);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (Database != null)
+                    await Database.SavePlayerColorsAsync(player.SteamID, player.PlayerName, tag.ChatColor, tag.NameColor);
+            }
+            catch (Exception ex)
+            {
+                Server.PrintToConsole($"[cs2-tags] Error saving name color: {ex.Message}");
+            }
+        });
+        
+        info.ReplyToCommand(Config.Settings.Tag + $"Name color changed to {color}");
+    }
+
+    [RequiresPermissions("@css/vip")]
+    [CommandHelper(minArgs: 1, usage: "<color>", whoCanExecute: CommandUsage.CLIENT_ONLY)]
+    public void Command_ChatColor(CCSPlayerController? player, CommandInfo info)
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        string color = info.GetArg(1);
+        
+        if (!IsValidColor(color))
+        {
+            info.ReplyToCommand(Config.Settings.Tag + $"Invalid color: {color}. Valid colors: {GetValidColorsMessage()}");
+            return;
+        }
+        
+        player.SetAttribute(TagType.ChatColor, $"{{{color}}}");
+        
+        Tag tag = GetOrCreatePlayerTag(player, false);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (Database != null)
+                    await Database.SavePlayerColorsAsync(player.SteamID, player.PlayerName, tag.ChatColor, tag.NameColor);
+            }
+            catch (Exception ex)
+            {
+                Server.PrintToConsole($"[cs2-tags] Error saving chat color: {ex.Message}");
+            }
+        });
+        
+        info.ReplyToCommand(Config.Settings.Tag + $"Chat color changed to {color}");
+    }
+
     [GameEventHandler]
     public HookResult OnPlayerConnect(EventPlayerConnectFull @event, GameEventInfo info)
     {
@@ -96,6 +210,34 @@ public class Tags : BasePlugin, IPluginConfig<Config>
             return HookResult.Continue;
 
         PlayerTagsList[player.SteamID] = player.GetTag();
+        
+        // Load colors from database
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (Database == null)
+                    return;
+                    
+                var (chatColor, nameColor) = await Database.LoadPlayerColorsAsync(player.SteamID);
+                
+                if (chatColor != null || nameColor != null)
+                {
+                    Server.NextFrame(() =>
+                    {
+                        if (chatColor != null)
+                            player.SetAttribute(TagType.ChatColor, chatColor);
+                        if (nameColor != null)
+                            player.SetAttribute(TagType.NameColor, nameColor);
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Server.PrintToConsole($"[cs2-tags] Error loading player colors: {ex.Message}");
+            }
+        });
+        
         return HookResult.Continue;
     }
 
