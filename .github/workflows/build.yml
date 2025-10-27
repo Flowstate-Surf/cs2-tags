@@ -53,7 +53,6 @@ jobs:
 
       - name: Create Release Artifact (ZIP) from BuildOutput
         run: |
-          mkdir -p release
           cd BuildOutput
           zip -r ../cs2-tags-v1.${{ env.BUILD_NUMBER }}.zip .
 
